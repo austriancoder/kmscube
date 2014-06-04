@@ -45,6 +45,11 @@ PKG_CHECK_MODULES(GBM, gbm)
 PKG_CHECK_MODULES(EGL, egl)
 PKG_CHECK_MODULES(GLES2, glesv2)
 
+PKG_CHECK_MODULES(TEGRA, libdrm_tegra, [have_tegra=yes], [have_tegra=no])
+if test "x$have_tegra" = "xyes"; then
+	AC_DEFINE([HAVE_TEGRA], [1], [Define if Tegra support is available.])
+fi
+
 dnl ===========================================================================
 dnl check compiler flags
 AC_DEFUN([LIBDRM_CC_TRY_FLAG], [
