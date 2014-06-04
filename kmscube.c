@@ -73,7 +73,7 @@ struct drm_fb {
 static int init_drm(void)
 {
 	static const char *modules[] = {
-			"i915", "radeon", "nouveau", "vmwgfx", "omapdrm", "exynos", "msm"
+		"i915", "radeon", "nouveau", "vmwgfx", "omapdrm", "exynos", "msm"
 	};
 	drmModeRes *resources;
 	drmModeConnector *connector = NULL;
@@ -562,8 +562,8 @@ int main(int argc, char *argv[])
 {
 	fd_set fds;
 	drmEventContext evctx = {
-			.version = DRM_EVENT_CONTEXT_VERSION,
-			.page_flip_handler = page_flip_handler,
+		.version = DRM_EVENT_CONTEXT_VERSION,
+		.page_flip_handler = page_flip_handler,
 	};
 	struct gbm_bo *bo;
 	struct drm_fb *fb;
