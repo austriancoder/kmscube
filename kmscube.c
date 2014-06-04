@@ -55,6 +55,7 @@ static struct {
 } gl;
 
 static struct {
+	int fd;
 	struct gbm_device *dev;
 	struct gbm_surface *surface;
 } gbm;
@@ -71,7 +72,7 @@ struct drm_fb {
 	uint32_t fb_id;
 };
 
-static int init_drm(void)
+static int init_drm(const char *path)
 {
 	static const char *modules[] = {
 		"i915", "radeon", "nouveau", "vmwgfx", "omapdrm", "exynos", "msm"
@@ -81,15 +82,20 @@ static int init_drm(void)
 	drmModeEncoder *encoder = NULL;
 	int i, area;
 
-	for (i = 0; i < ARRAY_SIZE(modules); i++) {
-		printf("trying to load module %s...", modules[i]);
-		drm.fd = drmOpen(modules[i], NULL);
-		if (drm.fd < 0) {
-			printf("failed.\n");
-		} else {
-			printf("success.\n");
-			break;
+	if (!path) {
+		for (i = 0; i < ARRAY_SIZE(modules); i++) {
+			printf("trying to load module %s...", modules[i]);
+			drm.fd = drmOpen(modules[i], NULL);
+			if (drm.fd < 0) {
+				printf("failed.\n");
+			} else {
+				printf("success.\n");
+				break;
+			}
 		}
+	} else {
+		printf("opening %s for drm\n", path);
+		drm.fd = open(path, O_RDWR);
 	}
 
 	if (drm.fd < 0) {
@@ -157,9 +163,21 @@ static int init_drm(void)
 	return 0;
 }
 
-static int init_gbm(void)
+static int init_gbm(const char *path)
 {
-	gbm.dev = gbm_create_device(drm.fd);
+	if (path) {
+		printf("opening %s for gbm\n", path);
+
+		gbm.fd = open(path, O_RDWR);
+		if (gbm.fd < 0) {
+			fprintf(stderr, "could not open gbm device\n");
+			return -1;
+		}
+	} else {
+		gbm.fd = drm.fd;
+	}
+
+	gbm.dev = gbm_create_device(gbm.fd);
 
 	gbm.surface = gbm_surface_create(gbm.dev,
 			drm.mode->hdisplay, drm.mode->vdisplay,
@@ -540,6 +558,27 @@ static struct drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo)
 	stride = gbm_bo_get_stride(bo);
 	handle = gbm_bo_get_handle(bo).u32;
 
+	if (drm.fd != gbm.fd) {
+		int fd;
+
+		ret = drmPrimeHandleToFD(gbm.fd, handle, 0, &fd);
+		if (ret) {
+			printf("failed to export bo: %m\n");
+			free(fb);
+			return NULL;
+		}
+
+		ret = drmPrimeFDToHandle(drm.fd, fd, &handle);
+		if (ret) {
+			printf("failed to import bo: %m\n");
+			close(fd);
+			free(fb);
+			return NULL;
+		}
+
+		close(fd);
+	}
+
 	ret = drmModeAddFB(drm.fd, width, height, 24, 32, stride, handle, &fb->fb_id);
 	if (ret) {
 		printf("failed to create fb: %s\n", strerror(errno));
@@ -566,19 +605,30 @@ int main(int argc, char *argv[])
 		.version = DRM_EVENT_CONTEXT_VERSION,
 		.page_flip_handler = page_flip_handler,
 	};
+	const char *drm_device = NULL;
+	const char *gbm_device = NULL;
 	bool done = false;
 	struct gbm_bo *bo;
 	struct drm_fb *fb;
 	uint32_t i = 0;
 	int ret;
 
-	ret = init_drm();
+	if (argc > 1)
+		drm_device = argv[1];
+
+	if (argc > 2) {
+		/* if both devices are the same, open it once only */
+		if (strcmp(argv[2], argv[1]) != 0)
+			gbm_device = argv[2];
+	}
+
+	ret = init_drm(drm_device);
 	if (ret) {
 		printf("failed to initialize DRM\n");
 		return ret;
 	}
 
-	ret = init_gbm();
+	ret = init_gbm(gbm_device);
 	if (ret) {
 		printf("failed to initialize GBM\n");
 		return ret;
