@@ -576,10 +576,6 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	FD_ZERO(&fds);
-	FD_SET(0, &fds);
-	FD_SET(drm.fd, &fds);
-
 	ret = init_gbm();
 	if (ret) {
 		printf("failed to initialize GBM\n");
@@ -630,6 +626,10 @@ int main(int argc, char *argv[])
 		}
 
 		while (waiting_for_flip) {
+			FD_ZERO(&fds);
+			FD_SET(0, &fds);
+			FD_SET(drm.fd, &fds);
+
 			ret = select(drm.fd + 1, &fds, NULL, NULL, NULL);
 			if (ret < 0) {
 				printf("select err: %s\n", strerror(errno));
