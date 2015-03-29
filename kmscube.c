@@ -122,7 +122,7 @@ static const struct {
 static int init_drm(const char *path)
 {
 	static const char *modules[] = {
-		"i915", "radeon", "nouveau", "vmwgfx", "omapdrm", "exynos", "msm"
+		"i915", "radeon", "nouveau", "vmwgfx", "omapdrm", "exynos", "msm", "imx-drm"
 	};
 	drmModeRes *resources;
 	drmModeConnector *connector = NULL;
